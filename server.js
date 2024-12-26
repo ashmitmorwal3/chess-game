@@ -4,7 +4,8 @@ const { Chess } = require('chess.js');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+// Use process.env.PORT provided by Railway
+const PORT = process.env.PORT || 3000; // fallback to 3000 for local development
 
 // Serve static files for the frontend
 app.use(express.static(path.join(__dirname, 'public')));
@@ -78,15 +79,16 @@ wss.on('connection', (ws) => {
                         // Add to spectators if game is full
                         spectators.push(ws);
                         ws.send(JSON.stringify({ type: 'spectator', message: 'You are watching the game as a spectator.' }));
-                        const activeGame = games.values().next().value;
+                        const activeGame = Array.from(games.values())[0];
                         if (activeGame) {
-                            ws.gameId = activeGame;
+                            ws.gameId = activeGame.gameId;
+                            ws.send(JSON.stringify({ type: 'spectator', gameId: activeGame.gameId }));
                         }
                     }
                     break;
 
                 case 'move':
-                    const { gameId, from, to, color } = data; // Receive color of player
+                    const { gameId, from, to, color } = data;
                     const game = games.get(gameId);
 
                     if (!game) {
@@ -147,9 +149,11 @@ wss.on('connection', (ws) => {
         if (ws.gameId && games.has(ws.gameId)) {
             const game = games.get(ws.gameId);
             game.players = game.players.filter(player => player !== ws);
+            
             if (game.players.length === 0) {
-                games.delete(ws.gameId);
+                games.delete(ws.gameId); // Clean up the game if no players are left
             } else {
+                // Notify the remaining player if a player disconnects
                 broadcast(ws.gameId, { type: 'error', message: 'A player disconnected. Game over.' });
             }
         }
