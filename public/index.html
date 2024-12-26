@@ -15,66 +15,83 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
 
     <style>
-        /* Set background color to black and text color to white */
         body {
-            background-color: black;
-            color: white;
-            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #f5f5f5;
+            font-family: 'Roboto', sans-serif;
             margin: 0;
             padding: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
         }
 
         h1 {
-            color: white;
+            color: #ff5722;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
-        /* Chessboard container style */
         .chessboard {
-            width: 400px;
-            height: 400px;
+            max-width: 500px;
+            max-height: 500px;
+            width: 100%;
+            height: auto;
+            margin: 20px 0;
+            border: 2px solid #ff5722;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
         }
 
         #player-name-input {
             margin: 20px;
+            text-align: center;
         }
 
-        #game-status {
-            margin-top: 20px;
+        #player-name {
+            padding: 10px;
+            border: 2px solid #ff5722;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-right: 10px;
         }
 
-        input, button {
-            background-color: #333;
+        button {
+            background-color: #ff5722;
             color: white;
             border: none;
-            padding: 10px;
-            margin-top: 10px;
+            border-radius: 4px;
+            padding: 10px 20px;
             font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
         }
 
-        input:focus, button:focus {
-            outline: none;
-            box-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
+        button:hover {
+            background-color: #e64a19;
         }
 
-        /* Status and turn message styling */
-        #status, #first-player-message, #current-turn-message {
-            margin-top: 10px;
+        #status, #current-turn-message {
+            margin: 10px 0;
+            font-size: 18px;
+            text-align: center;
         }
 
-        /* Moves log */
         #moves-log {
             margin-top: 20px;
             padding: 10px;
-            background-color: #222;
-            border: 1px solid #444;
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 4px;
             width: 400px;
             max-height: 200px;
             overflow-y: auto;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #moves-log h3 {
+            color: #ff5722;
         }
 
         #moves-log p {
@@ -92,25 +109,24 @@
         <button id="start-game">Start Game</button>
     </div>
 
-    <!-- Chessboard container (initially hidden) -->
-    <div id="board" style="width: 400px; display:none;"></div>
+    <!-- Chessboard container -->
+    <div id="board" class="chessboard" style="display:none;"></div>
     
     <p id="status">Connecting to server...</p>
-    <!-- Display message for first player -->
-    <p id="current-turn-message"></p> <!-- Display current player's turn -->
+    <p id="current-turn-message"></p>
 
     <!-- Moves log to show move history -->
     <div id="moves-log">
         <h3>Moves Log</h3>
-        <!-- Moves will be displayed here -->
     </div>
 
-    <!-- Game logic script -->
     <script>
-        const socket = new WebSocket(`ws://${location.host}`);
+        // Dynamic WebSocket URL based on protocol (wss for production)
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(`${protocol}//${location.host}`);
+        
         const boardElement = document.getElementById('board');
         const statusElement = document.getElementById('status');
-       
         const currentTurnMessageElement = document.getElementById('current-turn-message');
         const movesLogElement = document.getElementById('moves-log');
 
@@ -126,7 +142,6 @@
         startGameButton.addEventListener('click', () => {
             playerName = playerNameInput.value.trim();
             if (playerName) {
-                // Send the player name and join the game
                 socket.send(JSON.stringify({ type: 'join', name: playerName }));
                 document.getElementById('player-name-input').style.display = 'none';
             } else {
@@ -135,19 +150,17 @@
         });
 
         function onDrop(source, target) {
-            // Only allow move if it's the player's turn
             if (myTurn) {
                 socket.send(JSON.stringify({
                     type: 'move',
                     gameId: game,
                     from: source,
                     to: target,
-                    color: color // Send the color along with the move
+                    color: color
                 }));
-                myTurn = false; // Switch turn after move
-                return 'snapback'; // Prevent the piece from moving immediately
+                myTurn = false;
+                return 'snapback';
             } else {
-                // Simply return 'snapback' without showing any error message
                 return 'snapback';
             }
         }
@@ -164,30 +177,19 @@
                     game = message.gameId;
                     color = message.color;
                     statusElement.innerText = `Game started! You are playing as ${color}.`;
-
-                    // Display message indicating who plays first
-                   
-
-                    // Show the chessboard
                     boardElement.style.display = 'block';
-
-                    // Initialize chessboard with Chessboard.js default pieces
                     board = Chessboard('board', {
                         draggable: true,
-                        position: 'start', // This loads the starting position
+                        position: 'start',
                         orientation: color,
                         onDrop: onDrop
                     });
-
-                    // Display current player's turn
                     currentTurnMessageElement.innerText = `${message.firstPlayer}'s turn`;
-
-                    myTurn = (message.firstPlayer.toLowerCase() === color); // Check if it's the player's turn
+                    myTurn = (message.firstPlayer.toLowerCase() === color);
                     break;
 
                 case 'move':
                     board.move(`${message.move.from}-${message.move.to}`);
-                    // Add the move to the moves log
                     const moveElement = document.createElement('p');
                     moveElement.innerText = `${message.move.from.toUpperCase()} to ${message.move.to.toUpperCase()}`;
                     movesLogElement.appendChild(moveElement);
@@ -195,11 +197,12 @@
 
                 case 'game_over':
                     statusElement.innerText = `Game Over: ${message.result}`;
+                    boardElement.style.display = 'none'; // Hide the board when the game is over
                     break;
 
                 case 'turn':
-                    myTurn = (message.turn.toLowerCase() === color); // Update turn status
-                    currentTurnMessageElement.innerText = `${message.turn}'s turn`; // Show whose turn it is
+                    myTurn = (message.turn.toLowerCase() === color);
+                    currentTurnMessageElement.innerText = `${message.turn}'s turn`;
                     break;
 
                 default:
@@ -207,9 +210,244 @@
             }
         };
 
-        // Join the game
         socket.onopen = () => {
             statusElement.innerText = 'Waiting for another player to join...';
+        };
+
+        socket.onerror = (error) => {
+            statusElement.innerText = 'Error connecting to server.';
+            console.error('WebSocket Error:', error);
+        };
+
+        socket.onclose = () => {
+            statusElement.innerText = 'Connection lost. Reconnecting...';
+        };
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game</title>
+
+    <!-- Chessboard.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    
+    <!-- jQuery (required for Chessboard.js) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Chessboard.js JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+
+    <style>
+        body {
+            background-color: #121212;
+            color: #f5f5f5;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #ff5722;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .chessboard {
+            max-width: 500px;
+            max-height: 500px;
+            width: 100%;
+            height: auto;
+            margin: 20px 0;
+            border: 2px solid #ff5722;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+        }
+
+        #player-name-input {
+            margin: 20px;
+            text-align: center;
+        }
+
+        #player-name {
+            padding: 10px;
+            border: 2px solid #ff5722;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        button {
+            background-color: #ff5722;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #e64a19;
+        }
+
+        #status, #current-turn-message {
+            margin: 10px 0;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        #moves-log {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 4px;
+            width: 400px;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #moves-log h3 {
+            color: #ff5722;
+        }
+
+        #moves-log p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chess Game</h1>
+    
+    <!-- Input for Player Name -->
+    <div id="player-name-input">
+        <label for="player-name">Enter Your Name: </label>
+        <input type="text" id="player-name" placeholder="Enter name" required>
+        <button id="start-game">Start Game</button>
+    </div>
+
+    <!-- Chessboard container -->
+    <div id="board" class="chessboard" style="display:none;"></div>
+    
+    <p id="status">Connecting to server...</p>
+    <p id="current-turn-message"></p>
+
+    <!-- Moves log to show move history -->
+    <div id="moves-log">
+        <h3>Moves Log</h3>
+    </div>
+
+    <script>
+        // Dynamic WebSocket URL based on protocol (wss for production)
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(`${protocol}//${location.host}`);
+        
+        const boardElement = document.getElementById('board');
+        const statusElement = document.getElementById('status');
+        const currentTurnMessageElement = document.getElementById('current-turn-message');
+        const movesLogElement = document.getElementById('moves-log');
+
+        const playerNameInput = document.getElementById('player-name');
+        const startGameButton = document.getElementById('start-game');
+
+        let board = null;
+        let game = null;
+        let color = null;
+        let playerName = null;
+        let myTurn = false;
+
+        startGameButton.addEventListener('click', () => {
+            playerName = playerNameInput.value.trim();
+            if (playerName) {
+                socket.send(JSON.stringify({ type: 'join', name: playerName }));
+                document.getElementById('player-name-input').style.display = 'none';
+            } else {
+                alert('Please enter your name!');
+            }
+        });
+
+        function onDrop(source, target) {
+            if (myTurn) {
+                socket.send(JSON.stringify({
+                    type: 'move',
+                    gameId: game,
+                    from: source,
+                    to: target,
+                    color: color
+                }));
+                myTurn = false;
+                return 'snapback';
+            } else {
+                return 'snapback';
+            }
+        }
+
+        socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+
+            switch (message.type) {
+                case 'welcome':
+                    statusElement.innerText = `Welcome ${message.name}. You are Player ${message.playerId}`;
+                    break;
+
+                case 'start':
+                    game = message.gameId;
+                    color = message.color;
+                    statusElement.innerText = `Game started! You are playing as ${color}.`;
+                    boardElement.style.display = 'block';
+                    board = Chessboard('board', {
+                        draggable: true,
+                        position: 'start',
+                        orientation: color,
+                        onDrop: onDrop
+                    });
+                    currentTurnMessageElement.innerText = `${message.firstPlayer}'s turn`;
+                    myTurn = (message.firstPlayer.toLowerCase() === color);
+                    break;
+
+                case 'move':
+                    board.move(`${message.move.from}-${message.move.to}`);
+                    const moveElement = document.createElement('p');
+                    moveElement.innerText = `${message.move.from.toUpperCase()} to ${message.move.to.toUpperCase()}`;
+                    movesLogElement.appendChild(moveElement);
+                    break;
+
+                case 'game_over':
+                    statusElement.innerText = `Game Over: ${message.result}`;
+                    boardElement.style.display = 'none'; // Hide the board when the game is over
+                    break;
+
+                case 'turn':
+                    myTurn = (message.turn.toLowerCase() === color);
+                    currentTurnMessageElement.innerText = `${message.turn}'s turn`;
+                    break;
+
+                default:
+                    console.error('Unknown message type:', message);
+            }
+        };
+
+        socket.onopen = () => {
+            statusElement.innerText = 'Waiting for another player to join...';
+        };
+
+        socket.onerror = (error) => {
+            statusElement.innerText = 'Error connecting to server.';
+            console.error('WebSocket Error:', error);
+        };
+
+        socket.onclose = () => {
+            statusElement.innerText = 'Connection lost. Reconnecting...';
         };
     </script>
 </body>
