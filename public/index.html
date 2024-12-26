@@ -123,7 +123,7 @@
     <script>
         // Dynamic WebSocket URL based on protocol (wss for production, ws for local)
         const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-        const socket = new WebSocket(`${protocol}://${location.hostname}:${location.port}`);
+        const socket = new WebSocket(`${protocol}://${location.hostname}`);
 
         const boardElement = document.getElementById('board');
         const statusElement = document.getElementById('status');
